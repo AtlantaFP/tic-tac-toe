@@ -1,5 +1,5 @@
 # tic-tac-toe
-A NashFP playground for you to contribute your polyglot FP solutions to tic-tac-toe.
+A AtlantaFP playground for you to contribute your polyglot FP solutions to tic-tac-toe. Taken from [NashFP](https://github.com/NashFP)
 
 ```
 SHALL WE PLAY A GAME?
