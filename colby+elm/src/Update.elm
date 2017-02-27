@@ -1,13 +1,11 @@
 module Update exposing (..)
 
 import Mouse exposing (Position)
-import Random
 
 
 type Msg
     = NoOp
     | Move Position
-    | MoveO Space
 
 
 type Space
@@ -39,7 +37,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    { game = [ ( UpperRight, X ), ( BottomLeft, O ) ]
+    { game = []
     , winner = Nothing
     }
         ! []
@@ -61,11 +59,12 @@ update msg model =
             in
                 if spaceTaken model.game space then
                     model ! []
+                else if (updated.winner /= Nothing) then
+                    updated ! []
+                else if (List.length updated.game) == 9 then
+                    updated ! []
                 else
-                    updated ! [ moveO updated.game ]
-
-        MoveO space ->
-            (move model space O) ! []
+                    botMove updated ! []
 
 
 subscriptions : Model -> Sub Msg
@@ -179,37 +178,61 @@ winners =
     ]
 
 
-moveO : Game -> Cmd Msg
-moveO game =
+
+-- bot moves
+
+
+botMove : Model -> Model
+botMove model =
     let
-        avail =
-            List.filter ((spaceTaken game) >> not) allSpaces
-
-        len =
-            List.length avail
+        space =
+            calculate model
     in
-        if ((List.length game) == 9) then
-            Cmd.none
-        else
-            Random.generate (MoveO)
-                (Random.map
-                    (\i ->
-                        case (getAt avail i) of
-                            Nothing ->
-                                UpperLeft
+        case space of
+            Nothing ->
+                model
 
-                            Just space ->
-                                space
-                    )
-                    (Random.int 0 len)
-                )
+            Just space ->
+                move model space O
 
 
-getAt : List a -> Int -> Maybe a
-getAt list i =
-    list
-        |> List.drop (i - 1)
+calculate : Model -> Maybe Space
+calculate model =
+    getAvailable model.game
+        |> List.map (calcScore model)
+        |> List.sortBy Tuple.second
         |> List.head
+        |> Maybe.map Tuple.first
+
+
+calcScore : Model -> Space -> ( Space, Int )
+calcScore model space =
+    let
+        updated =
+            move model space O
+    in
+        case updated.winner of
+            Just X ->
+                ( space, -3 )
+
+            Just O ->
+                ( space, 2 )
+
+            Nothing ->
+                if (List.length updated.game) == 9 then
+                    ( space, 0 )
+                else
+                    ( space
+                    , getAvailable updated.game
+                        |> List.map (calcScore updated)
+                        |> List.map Tuple.second
+                        |> List.sum
+                    )
+
+
+getAvailable : Game -> List Space
+getAvailable game =
+    List.filter ((spaceTaken game) >> not) allSpaces
 
 
 allSpaces : List Space
