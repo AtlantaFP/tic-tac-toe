@@ -165,28 +165,29 @@ botMove model =
         move model next
 
 
-calcMove : Model -> Int -> ( Int, Int )
+calcMove : Model -> Int -> ( Int, Float )
 calcMove model space =
     let
         moved =
             move model space
     in
-        if List.length moved.game == 9 then
-            ( space, 0 )
-        else
-            case moved.winner of
-                Just X ->
+        case moved.winner of
+            Just X ->
+                ( space, 0 )
+
+            Just O ->
+                ( space, 1 )
+
+            Nothing ->
+                if List.length moved.game == 9 then
                     ( space, 0 )
-
-                Just O ->
-                    ( space, 1 )
-
-                Nothing ->
+                else
                     ( space
                     , available moved.game
                         |> List.map (calcMove moved)
                         |> List.map Tuple.second
                         |> List.sum
+                        |> (*) 0.1
                     )
 
 
