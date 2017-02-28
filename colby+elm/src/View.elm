@@ -1,11 +1,11 @@
 module View exposing (..)
 
 import Html exposing (..)
-import Html.Attributes exposing (..)
 import Color exposing (..)
-import Update exposing (Msg(..), Model, Space(..), Piece(..))
+import Update exposing (Msg(..), Model, Piece(..))
 import Collage exposing (..)
 import Element exposing (..)
+import Arithmetic exposing (isEven, isOdd)
 
 
 view : Model -> Html Msg
@@ -28,7 +28,7 @@ game : Model -> Html Msg
 game model =
     collage 300
         300
-        (drawLines :: (List.map drawMove model.game))
+        (drawLines :: (List.indexedMap drawMove model.game))
         |> Element.toHtml
 
 
@@ -42,50 +42,51 @@ drawLines =
         ]
 
 
-drawMove : ( Space, Piece ) -> Form
-drawMove ( space, piece ) =
-    move (getOffset space) (renderPiece piece)
+drawMove : Int -> Int -> Form
+drawMove i space =
+    move (getOffset space) (renderPiece i)
 
 
-getOffset : Space -> ( Float, Float )
+getOffset : Int -> ( Float, Float )
 getOffset space =
     case space of
-        UpperLeft ->
+        1 ->
             ( -100, 100 )
 
-        UpperMid ->
+        2 ->
             ( 0, 100 )
 
-        UpperRight ->
+        3 ->
             ( 100, 100 )
 
-        MidLeft ->
+        4 ->
             ( -100, 0 )
 
-        MidMid ->
+        5 ->
             ( 0, 0 )
 
-        MidRight ->
+        6 ->
             ( 100, 0 )
 
-        BottomLeft ->
+        7 ->
             ( -100, -100 )
 
-        BottomMid ->
+        8 ->
             ( 0, -100 )
 
-        BottomRight ->
+        9 ->
             ( 100, -100 )
 
+        _ ->
+            ( 0, 0 )
 
-renderPiece : Piece -> Form
-renderPiece piece =
-    case piece of
-        O ->
-            outlined (solid blue) (circle 50)
 
-        X ->
-            group
-                [ traced (solid red) (segment ( -50, -50 ) ( 50, 50 ))
-                , traced (solid red) (segment ( 50, -50 ) ( -50, 50 ))
-                ]
+renderPiece : Int -> Form
+renderPiece i =
+    if isEven i then
+        outlined (solid blue) (circle 50)
+    else
+        group
+            [ traced (solid red) (segment ( -50, -50 ) ( 50, 50 ))
+            , traced (solid red) (segment ( 50, -50 ) ( -50, 50 ))
+            ]

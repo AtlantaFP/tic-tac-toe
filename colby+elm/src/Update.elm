@@ -1,6 +1,7 @@
 module Update exposing (..)
 
 import Mouse exposing (Position)
+import Arithmetic exposing (isEven, isOdd)
 
 
 type Msg
@@ -8,25 +9,13 @@ type Msg
     | Move Position
 
 
-type Space
-    = UpperLeft
-    | UpperMid
-    | UpperRight
-    | MidLeft
-    | MidMid
-    | MidRight
-    | BottomLeft
-    | BottomMid
-    | BottomRight
-
-
 type Piece
-    = X
-    | O
+    = O
+    | X
 
 
 type alias Game =
-    List ( Space, Piece )
+    List Int
 
 
 type alias Model =
@@ -55,9 +44,9 @@ update msg model =
                     locateSpace position
 
                 updated =
-                    (move model space X)
+                    (move model space)
             in
-                if spaceTaken model.game space then
+                if List.member space model.game then
                     model ! []
                 else if (updated.winner /= Nothing) then
                     updated ! []
@@ -72,11 +61,11 @@ subscriptions model =
     Mouse.clicks Move
 
 
-move : Model -> Space -> Piece -> Model
-move model space piece =
+move : Model -> Int -> Model
+move model space =
     let
         game =
-            ( space, piece ) :: model.game
+            model.game ++ [ space ]
 
         winner =
             getWinner game
@@ -84,166 +73,127 @@ move model space piece =
         { model | game = game, winner = winner }
 
 
-spaceTaken : Game -> Space -> Bool
-spaceTaken game space =
-    game
-        |> List.map Tuple.first
-        |> List.member space
-
-
-locateSpace : Position -> Space
+locateSpace : Position -> Int
 locateSpace { x, y } =
-    if x < 100 then
-        leftSide y
-    else if x < 200 then
-        middle y
-    else
-        rightSide y
-
-
-leftSide : Int -> Space
-leftSide y =
-    if y < 100 then
-        UpperLeft
-    else if y < 200 then
-        MidLeft
-    else
-        BottomLeft
-
-
-middle : Int -> Space
-middle y =
-    if y < 100 then
-        UpperMid
-    else if y < 200 then
-        MidMid
-    else
-        BottomMid
-
-
-rightSide : Int -> Space
-rightSide y =
-    if y < 100 then
-        UpperRight
-    else if y < 200 then
-        MidRight
-    else
-        BottomRight
+    (+)
+        (if x < 100 then
+            1
+         else if x < 200 then
+            2
+         else
+            3
+        )
+        (if y < 100 then
+            0
+         else if y < 200 then
+            3
+         else
+            6
+        )
 
 
 getWinner : Game -> Maybe Piece
 getWinner game =
-    let
-        exes =
-            getAll game X
-
-        ohs =
-            getAll game O
-    in
-        if (checkWinner exes) then
-            Just X
-        else if (checkWinner ohs) then
-            Just O
-        else
-            Nothing
+    if (checkWinner (ohs game)) then
+        Just O
+    else if (checkWinner (exes game)) then
+        Just X
+    else
+        Nothing
 
 
-getAll : Game -> Piece -> List Space
-getAll game piece =
+exes : Game -> List Int
+exes game =
+    getAll isOdd game
+
+
+ohs : Game -> List Int
+ohs game =
+    getAll isEven game
+
+
+getAll : (Int -> Bool) -> Game -> List Int
+getAll checker game =
     game
-        |> List.filter (\x -> piece == (Tuple.second x))
-        |> List.map Tuple.first
+        |> List.indexedMap (,)
+        |> List.filter (\m -> checker (Tuple.first m))
+        |> List.map Tuple.second
 
 
-checkWinner : List Space -> Bool
+checkWinner : List Int -> Bool
 checkWinner spaces =
     List.any (isSubset spaces) winners
 
 
 isSubset : List a -> List a -> Bool
 isSubset set subset =
-    List.all (\p -> List.member p set) subset
+    List.all ((flip List.member) set) subset
 
 
-winners : List (List Space)
+winners : List (List Int)
 winners =
-    [ [ UpperLeft, UpperMid, UpperRight ]
-    , [ MidLeft, MidMid, MidRight ]
-    , [ BottomLeft, BottomMid, BottomRight ]
-    , [ UpperLeft, MidLeft, BottomLeft ]
-    , [ UpperMid, MidMid, BottomMid ]
-    , [ UpperRight, MidRight, BottomRight ]
-    , [ UpperLeft, MidMid, BottomRight ]
-    , [ UpperRight, MidMid, BottomLeft ]
+    [ [ 1, 2, 3 ]
+    , [ 4, 5, 6 ]
+    , [ 7, 8, 9 ]
+    , [ 1, 4, 7 ]
+    , [ 2, 5, 8 ]
+    , [ 3, 6, 9 ]
+    , [ 1, 5, 9 ]
+    , [ 3, 5, 7 ]
     ]
 
 
 
--- bot moves
+-- bot section
 
 
 botMove : Model -> Model
 botMove model =
     let
-        space =
-            calculate model
+        avail =
+            available model.game
+
+        next =
+            avail
+                |> List.map (calcMove model)
+                |> Debug.log "calculated"
+                |> List.sortBy Tuple.second
+                |> List.head
+                |> Maybe.withDefault ( 1, 1 )
+                |> Tuple.first
     in
-        case space of
-            Nothing ->
-                model
-
-            Just space ->
-                move model space O
+        move model next
 
 
-calculate : Model -> Maybe Space
-calculate model =
-    getAvailable model.game
-        |> List.map (calcScore model)
-        |> List.sortBy Tuple.second
-        |> List.head
-        |> Maybe.map Tuple.first
-
-
-calcScore : Model -> Space -> ( Space, Int )
-calcScore model space =
+calcMove : Model -> Int -> ( Int, Int )
+calcMove model space =
     let
-        updated =
-            move model space O
+        moved =
+            move model space
     in
-        case updated.winner of
-            Just X ->
-                ( space, -3 )
-
-            Just O ->
-                ( space, 2 )
-
-            Nothing ->
-                if (List.length updated.game) == 9 then
+        if List.length moved.game == 9 then
+            ( space, 0 )
+        else
+            case moved.winner of
+                Just X ->
                     ( space, 0 )
-                else
+
+                Just O ->
+                    ( space, 1 )
+
+                Nothing ->
                     ( space
-                    , getAvailable updated.game
-                        |> List.map (calcScore updated)
+                    , available moved.game
+                        |> List.map (calcMove moved)
                         |> List.map Tuple.second
                         |> List.sum
                     )
 
 
-getAvailable : Game -> List Space
-getAvailable game =
-    List.filter ((spaceTaken game) >> not) allSpaces
-
-
-allSpaces : List Space
-allSpaces =
-    [ UpperLeft
-    , UpperMid
-    , UpperRight
-    , MidLeft
-    , MidMid
-    , MidRight
-    , BottomLeft
-    , BottomMid
-    , BottomRight
-    ]
+available : List Int -> List Int
+available moves =
+    List.range 1 9
+        |> List.filter
+            (\x ->
+                not (List.member x moves)
+            )
